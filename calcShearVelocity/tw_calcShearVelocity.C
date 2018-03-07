@@ -22,11 +22,7 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Application
-    tw_calcShearRate
-
-    The shear rate is calculated as
-    	\dot{gamma} = 0.5 (grad(U) + (grad(U))^T)
-    where ()^T is the transposed.
+    tw_calcShearVelocity
 
 \*---------------------------------------------------------------------------*/
 
@@ -83,12 +79,12 @@ int main(int argc, char *argv[])
 			mesh
 		);
 
-		Info << "Creating the field shearRate" << endl;
-		volSymmTensorField shearRate
+		Info << "Creating the field shearVelocity" << endl;
+		volSymmTensorField shearVelocity
 		(
 			IOobject
 			(
-				"shearRate",
+				"shearVelocity",
 				runTime.timeName(),
 				mesh,
 				IOobject::NO_READ,
@@ -97,25 +93,63 @@ int main(int argc, char *argv[])
 			mesh,
 			dimensionedSymmTensor
 			(
-				"shearRate",
+				"shearVelocity",
 				dimensionSet(0, 0, -1, 0, 0, 0, 0),
 				symmTensor (0,0,0,0,0,0)
 			)
 		);
 
+
+
 		volTensorField myU(fvc::grad(U));
 		volTensorField myU_T(myU.T());
-		shearRate = symm(myU + myU_T);
 
-		// The diagonal entries of the 2nd rank tensor 'shearRate'
+//		volSymmTensorField shearVelocity_D
+//		(
+//			IOobject
+//			(
+//				"shearVelocity_D",
+//				runTime.timeName(),
+//				mesh,
+//				IOobject::NO_READ,
+//				IOobject::AUTO_WRITE
+//			),
+//			mesh,
+//			dimensionedSymmTensor
+//			(
+//				"shearVelocity_D",
+//				dimensionSet(0, 0, -1, 0, 0, 0, 0),
+//				symmTensor (0,0,0,0,0,0)
+//			)
+//		);
+//		// Verzerrungstensor (symmetrischen und antisymmetrischen kombiniert)
+//		shearVelocity_D = symm(0.5 * (myU + myU_T) );
+//		// Obtaining the symmetric part of a tensor
+//		// http://mathworld.wolfram.com/SymmetricPart.html
+//		shearVelocity_D = (0.5 * (shearVelocity + shearVelocity.T()));
+//		// The diagonal entries of the 2nd rank tensor 'shearVelocity'
+//		// must be 0.0
+//		forAll(shearVelocity, celli) {
+//			shearVelocity_D[celli].xx() = 0.0;
+//			shearVelocity_D[celli].yy() = 0.0;
+//			shearVelocity_D[celli].zz() = 0.0;
+//		}
+//		shearVelocity_D.write();
+
+
+		// Shortcut to calculate the shear velocity from the off diagonal
+		// elements
+		shearVelocity = symm(myU + myU_T);
+
+		// The diagonal entries of the 2nd rank tensor 'shearVelocity'
 		// must be 0.0
-		forAll(shearRate, celli) {
-			shearRate[celli].xx() = 0.0;
-			shearRate[celli].yy() = 0.0;
-			shearRate[celli].zz() = 0.0;
+		forAll(shearVelocity, celli) {
+			shearVelocity[celli].xx() = 0.0;
+			shearVelocity[celli].yy() = 0.0;
+			shearVelocity[celli].zz() = 0.0;
 		}
 
-		shearRate.write();
+		shearVelocity.write();
     }
 
     return 0;

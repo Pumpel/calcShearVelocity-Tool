@@ -1,3 +1,0 @@
-tw_calcShearRate.C
-
-EXE = $(FOAM_USER_APPBIN)/tw_calcShearRate
