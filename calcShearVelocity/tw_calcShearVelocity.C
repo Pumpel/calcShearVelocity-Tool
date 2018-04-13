@@ -99,57 +99,155 @@ int main(int argc, char *argv[])
 			)
 		);
 
+		Info << "Creating the field shearVelocity_E" << endl;
+		volScalarField shearVelocity_E
+		(
+			IOobject
+			(
+				"shearVelocity_E",
+				runTime.timeName(),
+				mesh,
+				IOobject::NO_READ,
+				IOobject::AUTO_WRITE
+			),
+			mesh,
+			dimensionedScalar
+			(
+				"shearVelocity_E",
+				dimensionSet(0, 0, -1, 0, 0, 0, 0),
+				scalar (0)
+			)
+		);
+
+		Info << "Creating the field E" << endl;
+		volTensorField E
+		(
+			IOobject
+			(
+				"E",
+				runTime.timeName(),
+				mesh,
+				IOobject::NO_READ,
+				IOobject::AUTO_WRITE
+			),
+			mesh,
+			dimensionedTensor
+			(
+				"E",
+				dimensionSet(0, 0, -1, 0, 0, 0, 0),
+				tensor (0,0,0,0,0,0,0,0,0)
+			)
+		);
+
+		Info << "Creating the field shearVelocity_E_mTr" << endl;
+		volTensorField shearVelocity_E_mTr
+		(
+			IOobject
+			(
+				"shearVelocity_E_mTr",
+				runTime.timeName(),
+				mesh,
+				IOobject::NO_READ,
+				IOobject::AUTO_WRITE
+			),
+			mesh,
+			dimensionedTensor
+			(
+				"shearVelocity_E_mTr",
+				dimensionSet(0, 0, -1, 0, 0, 0, 0),
+				tensor (0,0,0,0,0,0,0,0,0)
+			)
+		);
 
 
-		volTensorField myU(fvc::grad(U));
-		volTensorField myU_T(myU.T());
+		Info << "Creating the field shearVelocity_E_dev" << endl;
+		volTensorField shearVelocity_E_dev
+		(
+			IOobject
+			(
+				"shearVelocity_E_dev",
+				runTime.timeName(),
+				mesh,
+				IOobject::NO_READ,
+				IOobject::AUTO_WRITE
+			),
+			mesh,
+			dimensionedTensor
+			(
+				"shearVelocity_E_dev",
+				dimensionSet(0, 0, -1, 0, 0, 0, 0),
+				tensor (0,0,0,0,0,0,0,0,0)
+			)
+		);
 
-//		volSymmTensorField shearVelocity_D
-//		(
-//			IOobject
-//			(
-//				"shearVelocity_D",
-//				runTime.timeName(),
-//				mesh,
-//				IOobject::NO_READ,
-//				IOobject::AUTO_WRITE
-//			),
-//			mesh,
-//			dimensionedSymmTensor
-//			(
-//				"shearVelocity_D",
-//				dimensionSet(0, 0, -1, 0, 0, 0, 0),
-//				symmTensor (0,0,0,0,0,0)
-//			)
-//		);
-//		// Verzerrungstensor (symmetrischen und antisymmetrischen kombiniert)
-//		shearVelocity_D = symm(0.5 * (myU + myU_T) );
-//		// Obtaining the symmetric part of a tensor
-//		// http://mathworld.wolfram.com/SymmetricPart.html
-//		shearVelocity_D = (0.5 * (shearVelocity + shearVelocity.T()));
-//		// The diagonal entries of the 2nd rank tensor 'shearVelocity'
-//		// must be 0.0
-//		forAll(shearVelocity, celli) {
-//			shearVelocity_D[celli].xx() = 0.0;
-//			shearVelocity_D[celli].yy() = 0.0;
-//			shearVelocity_D[celli].zz() = 0.0;
-//		}
-//		shearVelocity_D.write();
+		// Jacobian and the transposed Jacobian matrix of the velocity field
+		volTensorField J(fvc::grad(U));
+		volTensorField J_T(fvc::grad(U));
+
+		//********************************************************************************
+		// Three different calculation strategies are tested for the rate-of-shear
+		// It seems, that the OpenFOAM function symm() doesn't lead to the same (correct)
+		// result as the other calculation methods
+		//********************************************************************************
 
 
-		// Shortcut to calculate the shear velocity from the off diagonal
-		// elements
-		shearVelocity = symm(myU + myU_T);
+		// 1)
+		// Testing the symm() function on the Jacobian of the velocity field
 
-		// The diagonal entries of the 2nd rank tensor 'shearVelocity'
-		// must be 0.0
-		forAll(shearVelocity, celli) {
-			shearVelocity[celli].xx() = 0.0;
-			shearVelocity[celli].yy() = 0.0;
-			shearVelocity[celli].zz() = 0.0;
-		}
+		shearVelocity = symm(J); 	// This calculates the symmetric part, i.e. the rate-of-strain,
+									// of the Jacobian of the velocity field
+
+		// dev() calculates the deviatoric part, i.e. the rate-of-shear part
+		// of the rate-of-strain tensor
+		shearVelocity = dev(shearVelocity);
 
 		shearVelocity.write();
+
+		// Doesnt't yield correct results.
+
+
+
+		// 2)
+		// Testing the result, if all equations are 'handwritten'
+
+		// Symmetric part of the Jacobian matrix J, or rate-of-strain tensor
+		E = 0.5*(J + J_T);
+
+		//Decomposition of the symmetric part E
+		  // E = Tr(E) + E - Tr(E) d_ij
+		  // Where E - Tr(E) is rate-of-shear, the deviatoric part (of the rate-of-strain tensor,
+		  // which is in turn the Jacobian matrix of the velocity field
+		  // and Tr(E) d_ij the rate-of-expansion tensor, the hydrostatic part (of the rate-of-strain tensor)
+		// The two expressions below should be equal.
+		shearVelocity_E_mTr = (E - 1/3*tr(2*E)*tensor::one);
+
+		shearVelocity_E_mTr.write();
+
+		// Yields correct results.
+
+
+		// 3)
+		// Testing the function for the deviatoric part of a tensor
+
+		// dev() calculates the deviatoric part, i.e. the rate-of-shear part
+		// of the rate-of-strain tensor
+		shearVelocity_E_dev = dev(E);
+
+		shearVelocity_E_dev.write();
+
+		// Yields correct results.
+
+
+		// 4)
+		// Testing the calcluation method for the shear rate according to the lecture notes
+		// Hinch, J., Lecture 2: Constitutive Relations
+
+		// The double inner scalar product of the strain rate tensor
+		shearVelocity_E = sqrt(2 * E && E);
+
+		shearVelocity_E.write();
+
+		// Doesn't yield correct results.
     }
 
     return 0;
