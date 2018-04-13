@@ -194,8 +194,9 @@ int main(int argc, char *argv[])
 		// 1)
 		// Testing the symm() function on the Jacobian of the velocity field
 
-		shearVelocity = symm(J); 	// This calculates the symmetric part, i.e. the rate-of-strain,
-									// of the Jacobian of the velocity field
+		// This calculates the symmetric part, i.e. the rate-of-strain,
+		// of the Jacobian of the velocity field
+		shearVelocity = symm(J);
 
 		// dev() calculates the deviatoric part, i.e. the rate-of-shear part
 		// of the rate-of-strain tensor
@@ -218,7 +219,7 @@ int main(int argc, char *argv[])
 		  // Where E - Tr(E) is rate-of-shear, the deviatoric part (of the rate-of-strain tensor,
 		  // which is in turn the Jacobian matrix of the velocity field
 		  // and Tr(E) d_ij the rate-of-expansion tensor, the hydrostatic part (of the rate-of-strain tensor)
-		// The two expressions below should be equal.
+		// The two expressions in 2) and 3) should be equal.
 		shearVelocity_E_mTr = (E - 1/3*tr(2*E)*tensor::one);
 
 		shearVelocity_E_mTr.write();
